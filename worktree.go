@@ -8,15 +8,16 @@ import (
 )
 
 type WorktreeCmd struct {
-	New NewWorktreeCmd  `cmd:"" help:"Create a new worktree and open it in a tmux window"`
-	Rm  RmWorktreeCmd   `cmd:"" help:"Remove a worktree and prune refs"`
-	Ls  ListWorktreeCmd `cmd:"" help:"List all worktrees"`
+	New  NewWorktreeCmd  `cmd:"" help:"Create a new worktree and open it in a tmux session"`
+	Open OpenWorktreeCmd `cmd:"" help:"Open an existing worktree in a new tmux session"`
+	Rm   RmWorktreeCmd   `cmd:"" help:"Remove a worktree and prune refs"`
+	Ls   ListWorktreeCmd `cmd:"" help:"List all worktrees"`
 }
 
 type NewWorktreeCmd struct {
-	Branch string `arg:"" help:"Branch name to create"`
-	Window string `short:"w" help:"Tmux window name (default: last segment of branch name)"`
-	Path   string `short:"p" help:"Worktree path (default: sibling directory named after branch)"`
+	Branch  string `arg:"" help:"Branch name to create"`
+	Session string `short:"s" help:"Tmux session name (default: last segment of branch name)"`
+	Path    string `short:"p" help:"Worktree path (default: sibling directory named after branch)"`
 }
 
 func (c *NewWorktreeCmd) Run() error {
@@ -31,26 +32,62 @@ func (c *NewWorktreeCmd) Run() error {
 		worktreePath = filepath.Join(filepath.Dir(root), branchDir)
 	}
 
-	if err := run("git", "worktree", "add", "-b", c.Branch, worktreePath); err != nil {
+	if err := run("git", "worktree", "add", "-B", c.Branch, worktreePath); err != nil {
 		return fmt.Errorf("creating worktree: %w", err)
 	}
 
-	windowName := c.Window
-	if windowName == "" {
+	sessionName := c.Session
+	if sessionName == "" {
 		parts := strings.Split(c.Branch, "/")
-		windowName = parts[len(parts)-1]
+		sessionName = parts[len(parts)-1]
 	}
 
 	if os.Getenv("TMUX") == "" {
-		fmt.Printf("Created worktree at %s (not in tmux, skipping window creation)\n", worktreePath)
+		fmt.Printf("Created worktree at %s (not in tmux, skipping session creation)\n", worktreePath)
 		return nil
 	}
 
-	if err := run("tmux", "new-window", "-n", windowName, "-c", worktreePath); err != nil {
-		return fmt.Errorf("creating tmux window: %w", err)
+	if err := run("tmux", "new-session", "-d", "-s", sessionName, "-c", worktreePath); err != nil {
+		return fmt.Errorf("creating tmux session: %w", err)
+	}
+	if err := run("tmux", "switch-client", "-t", sessionName); err != nil {
+		return fmt.Errorf("switching to tmux session: %w", err)
 	}
 
-	fmt.Printf("Created worktree at %s, opened tmux window '%s'\n", worktreePath, windowName)
+	fmt.Printf("Created worktree at %s, opened tmux session '%s'\n", worktreePath, sessionName)
+	return nil
+}
+
+type OpenWorktreeCmd struct {
+	Branch  string `arg:"" help:"Branch name of the worktree to open"`
+	Session string `short:"s" help:"Tmux session name (default: last segment of branch name)"`
+}
+
+func (c *OpenWorktreeCmd) Run() error {
+	path, err := findWorktreePath(c.Branch)
+	if err != nil {
+		return err
+	}
+
+	sessionName := c.Session
+	if sessionName == "" {
+		parts := strings.Split(c.Branch, "/")
+		sessionName = parts[len(parts)-1]
+	}
+
+	if os.Getenv("TMUX") == "" {
+		fmt.Printf("Worktree at %s (not in tmux, skipping session creation)\n", path)
+		return nil
+	}
+
+	if err := run("tmux", "new-session", "-d", "-s", sessionName, "-c", path); err != nil {
+		return fmt.Errorf("creating tmux session: %w", err)
+	}
+	if err := run("tmux", "switch-client", "-t", sessionName); err != nil {
+		return fmt.Errorf("switching to tmux session: %w", err)
+	}
+
+	fmt.Printf("Opened worktree '%s' in tmux session '%s'\n", path, sessionName)
 	return nil
 }
 
@@ -87,4 +124,28 @@ type ListWorktreeCmd struct{}
 
 func (c *ListWorktreeCmd) Run() error {
 	return run("git", "worktree", "list")
+}
+
+// WindowCmd creates a new tmux window in the current session.
+type WindowCmd struct {
+	Name string `arg:"" help:"Window name"`
+	Dir  string `short:"c" help:"Starting directory (default: current directory)"`
+}
+
+func (c *WindowCmd) Run() error {
+	if os.Getenv("TMUX") == "" {
+		return fmt.Errorf("not inside a tmux session")
+	}
+
+	args := []string{"new-window", "-n", c.Name}
+	if c.Dir != "" {
+		args = append(args, "-c", c.Dir)
+	}
+
+	if err := run("tmux", args...); err != nil {
+		return fmt.Errorf("creating tmux window: %w", err)
+	}
+
+	fmt.Printf("Opened tmux window '%s'\n", c.Name)
+	return nil
 }
