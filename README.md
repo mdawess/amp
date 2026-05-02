@@ -27,8 +27,11 @@ make update
 ### Worktrees
 
 ```sh
-# Create a worktree for a new branch and open it in a tmux window
-amp worktree new <branch> [-w window-name] [-p path]
+# Create a worktree for a new branch and open it in a tmux session
+amp worktree new <branch> [-s session-name] [-p path]
+
+# Open an existing worktree in a new tmux session
+amp worktree open <branch> [-s session-name]
 
 # Remove a worktree and prune git refs
 amp worktree rm <branch> [-f]
@@ -37,7 +40,14 @@ amp worktree rm <branch> [-f]
 amp worktree ls
 ```
 
-`worktree new` creates the worktree as a sibling directory to the repo root (e.g. `../my-feature`) and opens a new tmux window pointed at it. The window name defaults to the last segment of the branch name.
+`worktree new` creates the worktree as a sibling directory to the repo root (e.g. `../my-feature`) and opens a new tmux session pointed at it. The session name defaults to the last segment of the branch name.
+
+### Windows
+
+```sh
+# Open a new tmux window in the current session
+amp window <name> [-c dir]
+```
 
 ### Stacked PRs
 
