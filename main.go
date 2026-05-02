@@ -7,8 +7,9 @@ import (
 )
 
 var cli struct {
-	Worktree WorktreeCmd `cmd:"" help:"Manage git worktrees and tmux windows"`
+	Worktree WorktreeCmd `cmd:"" help:"Manage git worktrees and tmux sessions"`
 	Stack    StackCmd    `cmd:"" help:"Manage stacked PRs via gh stack"`
+	Window   WindowCmd   `cmd:"" help:"Open a new tmux window in the current session"`
 }
 
 func main() {
