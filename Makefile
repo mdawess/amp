@@ -1,5 +1,5 @@
 BINARY := amp
-INSTALL_DIR := $(shell go env GOPATH)/bin
+INSTALL_DIR := /usr/local/bin
 
 .PHONY: build install uninstall update clean
 
@@ -7,7 +7,7 @@ build:
 	go build -o $(BINARY) .
 
 install:
-	go install .
+	go build -o $(INSTALL_DIR)/$(BINARY) .
 
 update:
 	git pull
