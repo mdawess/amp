@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestRunHook_success(t *testing.T) {
-	result := runHook(context.Background(), t.TempDir(), Hook{Command: "echo hello"})
+	result := RunHook(context.Background(), t.TempDir(), Hook{Command: "echo hello"})
 	if result.Err != nil {
 		t.Fatalf("unexpected error: %v", result.Err)
 	}
@@ -20,7 +20,7 @@ func TestRunHook_success(t *testing.T) {
 }
 
 func TestRunHook_failure(t *testing.T) {
-	result := runHook(context.Background(), t.TempDir(), Hook{Command: "exit 42"})
+	result := RunHook(context.Background(), t.TempDir(), Hook{Command: "exit 42"})
 	if result.ExitCode != 42 {
 		t.Errorf("exit code: got %d, want 42", result.ExitCode)
 	}
@@ -30,7 +30,7 @@ func TestRunHook_failure(t *testing.T) {
 }
 
 func TestRunHook_timeout(t *testing.T) {
-	result := runHook(context.Background(), t.TempDir(), Hook{
+	result := RunHook(context.Background(), t.TempDir(), Hook{
 		Command:   "sleep 10",
 		TimeoutMs: 50,
 	})
@@ -45,7 +45,7 @@ func TestRunHooks_order(t *testing.T) {
 		{Command: "echo first"},
 		{Command: "echo second"},
 	}
-	results := runHooks(context.Background(), dir, hooks)
+	results := RunHooks(context.Background(), dir, hooks)
 	if len(results) != 2 {
 		t.Fatalf("got %d results, want 2", len(results))
 	}
@@ -60,7 +60,7 @@ func TestRunHooks_order(t *testing.T) {
 func TestRunHook_cancelledContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	result := runHook(ctx, t.TempDir(), Hook{Command: "sleep 10"})
+	result := RunHook(ctx, t.TempDir(), Hook{Command: "sleep 10"})
 	if result.Err == nil {
 		t.Error("expected error from cancelled context")
 	}

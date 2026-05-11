@@ -1,9 +1,9 @@
-package main
+package stack
+
+import "github.com/mdawes/amp/internal/shell"
 
 // StackCmd wraps `gh stack` for managing stacked PRs.
 // Requires the gh-stack extension: https://github.github.com/gh-stack/
-//
-// Workflow: init -> add (repeat) -> commit (manual) -> push -> submit
 type StackCmd struct {
 	Init   StackInitCmd   `cmd:"" help:"Start a new stack (gh stack init <branch>)"`
 	Add    StackAddCmd    `cmd:"" help:"Add a new layer to the stack (gh stack add <branch>)"`
@@ -17,7 +17,7 @@ type StackInitCmd struct {
 }
 
 func (c *StackInitCmd) Run() error {
-	return runPassthrough("gh", append([]string{"stack", "init", c.Branch}, c.Args...)...)
+	return shell.RunPassthrough("gh", append([]string{"stack", "init", c.Branch}, c.Args...)...)
 }
 
 type StackAddCmd struct {
@@ -26,7 +26,7 @@ type StackAddCmd struct {
 }
 
 func (c *StackAddCmd) Run() error {
-	return runPassthrough("gh", append([]string{"stack", "add", c.Branch}, c.Args...)...)
+	return shell.RunPassthrough("gh", append([]string{"stack", "add", c.Branch}, c.Args...)...)
 }
 
 type StackPushCmd struct {
@@ -34,7 +34,7 @@ type StackPushCmd struct {
 }
 
 func (c *StackPushCmd) Run() error {
-	return runPassthrough("gh", append([]string{"stack", "push"}, c.Args...)...)
+	return shell.RunPassthrough("gh", append([]string{"stack", "push"}, c.Args...)...)
 }
 
 type StackSubmitCmd struct {
@@ -42,5 +42,5 @@ type StackSubmitCmd struct {
 }
 
 func (c *StackSubmitCmd) Run() error {
-	return runPassthrough("gh", append([]string{"stack", "submit"}, c.Args...)...)
+	return shell.RunPassthrough("gh", append([]string{"stack", "submit"}, c.Args...)...)
 }

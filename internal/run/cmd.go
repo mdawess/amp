@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"context"
@@ -6,15 +6,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/mdawes/amp/internal/git"
+	"github.com/mdawes/amp/internal/shell"
 )
 
 type RunCmd struct {
-	Start StartRunCmd  `cmd:"" help:"Start an autonomous agent run on a branch"`
-	Ls    ListRunsCmd  `cmd:"" help:"List all runs"`
-	Logs  RunLogsCmd   `cmd:"" help:"Tail the log for a run"`
+	Start StartRunCmd `cmd:"" help:"Start an autonomous agent run on a branch"`
+	Ls    ListRunsCmd `cmd:"" help:"List all runs"`
+	Logs  RunLogsCmd  `cmd:"" help:"Tail the log for a run"`
 }
 
 type StartRunCmd struct {
@@ -26,17 +28,17 @@ type StartRunCmd struct {
 }
 
 func (c *StartRunCmd) Run() error {
-	root, err := gitRoot()
+	root, err := git.Root()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := loadConfig(root)
+	cfg, err := LoadConfig(root)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	if err := ensureAmpDirGitignored(root); err != nil {
+	if err := EnsureAmpDirGitignored(root); err != nil {
 		return fmt.Errorf("updating .gitignore: %w", err)
 	}
 
@@ -48,7 +50,7 @@ func (c *StartRunCmd) Run() error {
 	ctx := context.Background()
 	if len(cfg.Hooks.OnWorktreeReady) > 0 {
 		fmt.Println("Running on_worktree_ready hooks...")
-		results := runHooks(ctx, worktreePath, cfg.Hooks.OnWorktreeReady)
+		results := RunHooks(ctx, worktreePath, cfg.Hooks.OnWorktreeReady)
 		for _, r := range results {
 			if r.Err != nil {
 				return fmt.Errorf("hook %q failed (exit %d): %s", r.Command, r.ExitCode, r.Stderr)
@@ -58,12 +60,12 @@ func (c *StartRunCmd) Run() error {
 
 	sessionName := c.Session
 	if sessionName == "" {
-		sessionName = defaultSessionName(c.Branch)
+		sessionName = git.DefaultSessionName(c.Branch)
 	}
 
 	logPath := c.LogPath
 	if logPath == "" {
-		logPath = filepath.Join(root, ".amp", "runs", sanitizeBranch(c.Branch)+".log")
+		logPath = filepath.Join(root, ".amp", "runs", SanitizeBranch(c.Branch)+".log")
 	}
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
 		return err
@@ -83,7 +85,7 @@ func (c *StartRunCmd) Run() error {
 		LogPath:          logPath,
 		CompletionSignal: completionSignal,
 	}
-	if err := saveRun(root, state); err != nil {
+	if err := SaveRun(root, state); err != nil {
 		return fmt.Errorf("saving run state: %w", err)
 	}
 
@@ -95,29 +97,29 @@ func (c *StartRunCmd) Run() error {
 		LogPath:          logPath,
 		CompletionSignal: completionSignal,
 	}
-	if err := spawnAgent(agentCfg); err != nil {
+	if err := SpawnAgent(agentCfg); err != nil {
 		return fmt.Errorf("spawning agent: %w", err)
 	}
 
 	fmt.Printf("Agent started: branch=%s session=%s log=%s\n", c.Branch, sessionName, logPath)
 	fmt.Println("Waiting for completion...")
 
-	finalStatus, exitCode, waitErr := waitForCompletion(ctx, logPath, completionSignal)
+	finalStatus, exitCode, waitErr := WaitForCompletion(ctx, logPath, completionSignal)
 
 	state.Status = finalStatus
 	state.EndTime = time.Now()
 	state.ExitCode = exitCode
-	_ = saveRun(root, state)
+	_ = SaveRun(root, state)
 
 	payload := NotifyPayload{
 		Branch:  c.Branch,
 		Status:  finalStatus,
-		Summary: summarizeLog(logPath),
+		Summary: SummarizeLog(logPath),
 	}
 	if finalStatus == RunStatusComplete {
-		sendNotification(ctx, cfg.Notifications.OnComplete, payload)
+		SendNotification(ctx, cfg.Notifications.OnComplete, payload)
 	} else {
-		sendNotification(ctx, cfg.Notifications.OnError, payload)
+		SendNotification(ctx, cfg.Notifications.OnError, payload)
 	}
 
 	if waitErr != nil {
@@ -134,11 +136,11 @@ func (c *StartRunCmd) Run() error {
 type ListRunsCmd struct{}
 
 func (c *ListRunsCmd) Run() error {
-	root, err := gitRoot()
+	root, err := git.Root()
 	if err != nil {
 		return err
 	}
-	runs, err := listRuns(root)
+	runs, err := ListRuns(root)
 	if err != nil {
 		return err
 	}
@@ -168,43 +170,25 @@ type RunLogsCmd struct {
 }
 
 func (c *RunLogsCmd) Run() error {
-	root, err := gitRoot()
+	root, err := git.Root()
 	if err != nil {
 		return err
 	}
-	state, err := loadRun(root, c.Branch)
+	state, err := LoadRun(root, c.Branch)
 	if err != nil {
 		return fmt.Errorf("no run found for branch %q: %w", c.Branch, err)
 	}
 	return exec.Command("tail", "-f", state.LogPath).Run()
 }
 
-// ensureWorktree returns the path to an existing worktree for branch, creating one if absent.
 func ensureWorktree(repoRoot, branch string) (string, error) {
-	path, err := findWorktreePath(branch)
+	path, err := git.FindWorktreePath(branch)
 	if err == nil {
 		return path, nil
 	}
-	worktreePath := worktreeSiblingPath(repoRoot, branch)
-	if err := run("git", "worktree", "add", "-B", branch, worktreePath); err != nil {
+	worktreePath := git.WorktreeSiblingPath(repoRoot, branch)
+	if err := shell.Run("git", "worktree", "add", "-B", branch, worktreePath); err != nil {
 		return "", fmt.Errorf("creating worktree: %w", err)
 	}
 	return worktreePath, nil
-}
-
-// summarizeLog returns the last few non-empty lines of a log file as a summary.
-func summarizeLog(logPath string) string {
-	data, err := os.ReadFile(logPath)
-	if err != nil {
-		return ""
-	}
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	var tail []string
-	for i := len(lines) - 1; i >= 0 && len(tail) < 3; i-- {
-		line := strings.TrimSpace(lines[i])
-		if line != "" && !strings.HasPrefix(line, exitSentinel) {
-			tail = append([]string{line}, tail...)
-		}
-	}
-	return strings.Join(tail, " | ")
 }

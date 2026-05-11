@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"os"
@@ -22,13 +22,12 @@ type NotificationsConfig struct {
 }
 
 type Config struct {
-	Hooks                   HooksConfig        `yaml:"hooks"`
+	Hooks                   HooksConfig         `yaml:"hooks"`
 	Notifications           NotificationsConfig `yaml:"notifications"`
-	DefaultCompletionSignal string             `yaml:"default_completion_signal"`
+	DefaultCompletionSignal string              `yaml:"default_completion_signal"`
 }
 
-// loadConfig reads .amp.yaml from repoRoot. Returns zero-value Config if the file is absent.
-func loadConfig(repoRoot string) (Config, error) {
+func LoadConfig(repoRoot string) (Config, error) {
 	data, err := os.ReadFile(filepath.Join(repoRoot, ".amp.yaml"))
 	if os.IsNotExist(err) {
 		return Config{}, nil

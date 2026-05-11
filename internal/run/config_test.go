@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 
 func TestLoadConfig_absent(t *testing.T) {
 	dir := t.TempDir()
-	cfg, err := loadConfig(dir)
+	cfg, err := LoadConfig(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -32,7 +32,7 @@ notifications:
 	if err := os.WriteFile(filepath.Join(dir, ".amp.yaml"), []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := loadConfig(dir)
+	cfg, err := LoadConfig(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"encoding/json"
@@ -28,16 +28,16 @@ type RunState struct {
 	ExitCode         int       `json:"exit_code,omitempty"`
 }
 
-func sanitizeBranch(branch string) string {
+func SanitizeBranch(branch string) string {
 	return strings.NewReplacer("/", "-", "\\", "-", ":", "-").Replace(branch)
 }
 
-func runsDir(repoRoot string) string {
+func RunsDir(repoRoot string) string {
 	return filepath.Join(repoRoot, ".amp", "runs")
 }
 
-func saveRun(repoRoot string, state RunState) error {
-	dir := runsDir(repoRoot)
+func SaveRun(repoRoot string, state RunState) error {
+	dir := RunsDir(repoRoot)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
@@ -45,11 +45,11 @@ func saveRun(repoRoot string, state RunState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, sanitizeBranch(state.Branch)+".json"), data, 0o644)
+	return os.WriteFile(filepath.Join(dir, SanitizeBranch(state.Branch)+".json"), data, 0o644)
 }
 
-func loadRun(repoRoot, branch string) (RunState, error) {
-	data, err := os.ReadFile(filepath.Join(runsDir(repoRoot), sanitizeBranch(branch)+".json"))
+func LoadRun(repoRoot, branch string) (RunState, error) {
+	data, err := os.ReadFile(filepath.Join(RunsDir(repoRoot), SanitizeBranch(branch)+".json"))
 	if err != nil {
 		return RunState{}, err
 	}
@@ -57,8 +57,8 @@ func loadRun(repoRoot, branch string) (RunState, error) {
 	return state, json.Unmarshal(data, &state)
 }
 
-func listRuns(repoRoot string) ([]RunState, error) {
-	entries, err := os.ReadDir(runsDir(repoRoot))
+func ListRuns(repoRoot string) ([]RunState, error) {
+	entries, err := os.ReadDir(RunsDir(repoRoot))
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -70,7 +70,7 @@ func listRuns(repoRoot string) ([]RunState, error) {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(runsDir(repoRoot), e.Name()))
+		data, err := os.ReadFile(filepath.Join(RunsDir(repoRoot), e.Name()))
 		if err != nil {
 			continue
 		}
@@ -83,8 +83,7 @@ func listRuns(repoRoot string) ([]RunState, error) {
 	return states, nil
 }
 
-// ensureAmpDirGitignored adds .amp/ to .gitignore if not already present.
-func ensureAmpDirGitignored(repoRoot string) error {
+func EnsureAmpDirGitignored(repoRoot string) error {
 	path := filepath.Join(repoRoot, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {

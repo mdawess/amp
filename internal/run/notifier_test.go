@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"context"
@@ -31,23 +31,22 @@ func TestExpandNotificationTemplate(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got := expandNotificationTemplate(c.command, c.payload)
+		got := ExpandNotificationTemplate(c.command, c.payload)
 		if got != c.want {
-			t.Errorf("expandNotificationTemplate(%q) = %q, want %q", c.command, got, c.want)
+			t.Errorf("ExpandNotificationTemplate(%q) = %q, want %q", c.command, got, c.want)
 		}
 	}
 }
 
 func TestSendNotification_empty(t *testing.T) {
-	// Should not panic or error when command is empty
-	sendNotification(context.Background(), "", NotifyPayload{Branch: "x", Status: RunStatusComplete})
+	SendNotification(context.Background(), "", NotifyPayload{Branch: "x", Status: RunStatusComplete})
 }
 
 func TestSendNotification_runs(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "out.txt")
 	cmd := "echo {{branch}} > " + out
-	sendNotification(context.Background(), cmd, NotifyPayload{Branch: "my-branch", Status: RunStatusComplete, Summary: "ok"})
+	SendNotification(context.Background(), cmd, NotifyPayload{Branch: "my-branch", Status: RunStatusComplete, Summary: "ok"})
 	data, err := os.ReadFile(out)
 	if err != nil {
 		t.Fatalf("output file not created: %v", err)

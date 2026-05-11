@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestCheckLog_notFound(t *testing.T) {
-	_, _, done, err := checkLog("/nonexistent/path.log", "")
+	_, _, done, err := CheckLog("/nonexistent/path.log", "")
 	if err == nil {
 		t.Error("expected error for missing file")
 	}
@@ -21,9 +21,9 @@ func TestCheckLog_notFound(t *testing.T) {
 func TestCheckLog_exitZero(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "out.log")
-	os.WriteFile(logPath, []byte("some output\n"+exitSentinel+"0\n"), 0o644)
+	os.WriteFile(logPath, []byte("some output\n"+ExitSentinel+"0\n"), 0o644)
 
-	status, code, done, err := checkLog(logPath, "")
+	status, code, done, err := CheckLog(logPath, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -41,9 +41,9 @@ func TestCheckLog_exitZero(t *testing.T) {
 func TestCheckLog_exitNonZero(t *testing.T) {
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "out.log")
-	os.WriteFile(logPath, []byte(exitSentinel+"1\n"), 0o644)
+	os.WriteFile(logPath, []byte(ExitSentinel+"1\n"), 0o644)
 
-	status, code, done, _ := checkLog(logPath, "")
+	status, code, done, _ := CheckLog(logPath, "")
 	if !done {
 		t.Fatal("expected done=true")
 	}
@@ -60,7 +60,7 @@ func TestCheckLog_completionSignal(t *testing.T) {
 	logPath := filepath.Join(dir, "out.log")
 	os.WriteFile(logPath, []byte("running...\nTask complete! All tests pass.\n"), 0o644)
 
-	status, _, done, _ := checkLog(logPath, "Task complete!")
+	status, _, done, _ := CheckLog(logPath, "Task complete!")
 	if !done {
 		t.Fatal("expected done=true")
 	}
@@ -74,7 +74,7 @@ func TestCheckLog_noSignalYet(t *testing.T) {
 	logPath := filepath.Join(dir, "out.log")
 	os.WriteFile(logPath, []byte("still working...\n"), 0o644)
 
-	_, _, done, err := checkLog(logPath, "DONE")
+	_, _, done, err := CheckLog(logPath, "DONE")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestWaitForCompletion_contextCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	status, _, err := waitForCompletion(ctx, logPath, "")
+	status, _, err := WaitForCompletion(ctx, logPath, "")
 	if err == nil {
 		t.Error("expected error from cancelled context")
 	}
@@ -108,14 +108,14 @@ func TestWaitForCompletion_detectsExit(t *testing.T) {
 	go func() {
 		time.Sleep(150 * time.Millisecond)
 		f, _ := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0o644)
-		f.WriteString(exitSentinel + "0\n")
+		f.WriteString(ExitSentinel + "0\n")
 		f.Close()
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	status, code, err := waitForCompletion(ctx, logPath, "")
+	status, code, err := WaitForCompletion(ctx, logPath, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

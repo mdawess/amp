@@ -1,22 +1,12 @@
-package main
+package worktree
 
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
+
+	"github.com/mdawes/amp/internal/git"
+	"github.com/mdawes/amp/internal/shell"
 )
-
-// worktreeSiblingPath returns the default path for a worktree: a sibling directory of repoRoot.
-func worktreeSiblingPath(repoRoot, branch string) string {
-	return filepath.Join(filepath.Dir(repoRoot), strings.ReplaceAll(branch, "/", "-"))
-}
-
-// defaultSessionName returns the default tmux session name for a branch: its last path segment.
-func defaultSessionName(branch string) string {
-	parts := strings.Split(branch, "/")
-	return parts[len(parts)-1]
-}
 
 type WorktreeCmd struct {
 	New  NewWorktreeCmd  `cmd:"" help:"Create a new worktree and open it in a tmux session"`
@@ -32,23 +22,23 @@ type NewWorktreeCmd struct {
 }
 
 func (c *NewWorktreeCmd) Run() error {
-	root, err := gitRoot()
+	root, err := git.Root()
 	if err != nil {
 		return err
 	}
 
 	worktreePath := c.Path
 	if worktreePath == "" {
-		worktreePath = worktreeSiblingPath(root, c.Branch)
+		worktreePath = git.WorktreeSiblingPath(root, c.Branch)
 	}
 
-	if err := run("git", "worktree", "add", "-B", c.Branch, worktreePath); err != nil {
+	if err := shell.Run("git", "worktree", "add", "-B", c.Branch, worktreePath); err != nil {
 		return fmt.Errorf("creating worktree: %w", err)
 	}
 
 	sessionName := c.Session
 	if sessionName == "" {
-		sessionName = defaultSessionName(c.Branch)
+		sessionName = git.DefaultSessionName(c.Branch)
 	}
 
 	if os.Getenv("TMUX") == "" {
@@ -56,10 +46,10 @@ func (c *NewWorktreeCmd) Run() error {
 		return nil
 	}
 
-	if err := run("tmux", "new-session", "-d", "-s", sessionName, "-c", worktreePath); err != nil {
+	if err := shell.Run("tmux", "new-session", "-d", "-s", sessionName, "-c", worktreePath); err != nil {
 		return fmt.Errorf("creating tmux session: %w", err)
 	}
-	if err := run("tmux", "switch-client", "-t", sessionName); err != nil {
+	if err := shell.Run("tmux", "switch-client", "-t", sessionName); err != nil {
 		return fmt.Errorf("switching to tmux session: %w", err)
 	}
 
@@ -73,14 +63,14 @@ type OpenWorktreeCmd struct {
 }
 
 func (c *OpenWorktreeCmd) Run() error {
-	path, err := findWorktreePath(c.Branch)
+	path, err := git.FindWorktreePath(c.Branch)
 	if err != nil {
 		return err
 	}
 
 	sessionName := c.Session
 	if sessionName == "" {
-		sessionName = defaultSessionName(c.Branch)
+		sessionName = git.DefaultSessionName(c.Branch)
 	}
 
 	if os.Getenv("TMUX") == "" {
@@ -88,10 +78,10 @@ func (c *OpenWorktreeCmd) Run() error {
 		return nil
 	}
 
-	if err := run("tmux", "new-session", "-d", "-s", sessionName, "-c", path); err != nil {
+	if err := shell.Run("tmux", "new-session", "-d", "-s", sessionName, "-c", path); err != nil {
 		return fmt.Errorf("creating tmux session: %w", err)
 	}
-	if err := run("tmux", "switch-client", "-t", sessionName); err != nil {
+	if err := shell.Run("tmux", "switch-client", "-t", sessionName); err != nil {
 		return fmt.Errorf("switching to tmux session: %w", err)
 	}
 
@@ -105,7 +95,7 @@ type RmWorktreeCmd struct {
 }
 
 func (c *RmWorktreeCmd) Run() error {
-	path, err := findWorktreePath(c.Branch)
+	path, err := git.FindWorktreePath(c.Branch)
 	if err != nil {
 		return err
 	}
@@ -116,11 +106,11 @@ func (c *RmWorktreeCmd) Run() error {
 	}
 	args = append(args, path)
 
-	if err := run("git", args...); err != nil {
+	if err := shell.Run("git", args...); err != nil {
 		return fmt.Errorf("removing worktree: %w", err)
 	}
 
-	if err := run("git", "worktree", "prune"); err != nil {
+	if err := shell.Run("git", "worktree", "prune"); err != nil {
 		return fmt.Errorf("pruning worktrees: %w", err)
 	}
 
@@ -131,10 +121,9 @@ func (c *RmWorktreeCmd) Run() error {
 type ListWorktreeCmd struct{}
 
 func (c *ListWorktreeCmd) Run() error {
-	return run("git", "worktree", "list")
+	return shell.Run("git", "worktree", "list")
 }
 
-// WindowCmd creates a new tmux window in the current session.
 type WindowCmd struct {
 	Name string `arg:"" help:"Window name"`
 	Dir  string `short:"c" help:"Starting directory (default: current directory)"`
@@ -150,7 +139,7 @@ func (c *WindowCmd) Run() error {
 		args = append(args, "-c", c.Dir)
 	}
 
-	if err := run("tmux", args...); err != nil {
+	if err := shell.Run("tmux", args...); err != nil {
 		return fmt.Errorf("creating tmux window: %w", err)
 	}
 

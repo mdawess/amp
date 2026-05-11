@@ -1,4 +1,4 @@
-package main
+package run
 
 import (
 	"bytes"
@@ -16,15 +16,15 @@ type HookResult struct {
 	TimedOut bool
 }
 
-func runHooks(ctx context.Context, dir string, hooks []Hook) []HookResult {
+func RunHooks(ctx context.Context, dir string, hooks []Hook) []HookResult {
 	results := make([]HookResult, 0, len(hooks))
 	for _, h := range hooks {
-		results = append(results, runHook(ctx, dir, h))
+		results = append(results, RunHook(ctx, dir, h))
 	}
 	return results
 }
 
-func runHook(ctx context.Context, dir string, h Hook) HookResult {
+func RunHook(ctx context.Context, dir string, h Hook) HookResult {
 	hookCtx := ctx
 	var cancel context.CancelFunc
 	if h.TimeoutMs > 0 {
