@@ -49,6 +49,64 @@ amp worktree ls
 amp window <name> [-c dir]
 ```
 
+### Autonomous agent runs
+
+```sh
+# Start an agent on a branch (creates the worktree if it doesn't exist)
+amp run start <branch> <prompt> [--signal <completion-signal>] [--session <name>] [--log <path>]
+
+# List all runs and their status
+amp run ls
+
+# Tail the log for a run
+amp run logs <branch>
+```
+
+`amp run start` creates the worktree, runs any `on_worktree_ready` hooks, then spawns `claude --print` in a **detached** tmux session and blocks until the agent exits. A push notification is fired on completion via the commands in `.amp.yaml`.
+
+**Keeping your machine awake** — wrap with `caffeinate -d` to prevent sleep while the agent runs:
+
+```sh
+caffeinate -d amp run start my-feature "implement the auth module per the PRD"
+```
+
+**Monitoring over SSH** — because the agent runs in a detached tmux session you can attach to it from any machine on your network without interrupting the run:
+
+```sh
+# On your phone or another machine
+ssh user@your-machine
+tmux attach -t <session-name>   # session name = last segment of branch by default
+# Detach without killing: Ctrl+B D
+```
+
+The `amp run start` process polling in the original terminal is unaffected by attach/detach.
+
+#### Configuration — `.amp.yaml`
+
+Place `.amp.yaml` in the repo root to configure hooks and notifications:
+
+```yaml
+# Shell commands run inside the worktree before the agent starts.
+# Useful for installing dependencies, running migrations, etc.
+hooks:
+  on_worktree_ready:
+    - command: "npm install"
+      timeout_ms: 60000
+    - command: "cp .env.example .env"
+
+# Shell commands fired when a run finishes.
+# Supports {{branch}}, {{status}}, and {{summary}} placeholders.
+notifications:
+  on_complete: "osascript -e 'display notification \"{{summary}}\" with title \"amp: {{branch}} done\"'"
+  on_error:    "osascript -e 'display notification \"{{summary}}\" with title \"amp: {{branch}} failed\"'"
+
+# A string in the agent's output that signals successful completion
+# (in addition to a zero exit code).
+default_completion_signal: ""
+```
+
+Run state is persisted to `.amp/runs/<branch>.json` (automatically gitignored).
+
 ### Stacked PRs
 
 ```sh

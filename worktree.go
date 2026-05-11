@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+// worktreeSiblingPath returns the default path for a worktree: a sibling directory of repoRoot.
+func worktreeSiblingPath(repoRoot, branch string) string {
+	return filepath.Join(filepath.Dir(repoRoot), strings.ReplaceAll(branch, "/", "-"))
+}
+
+// defaultSessionName returns the default tmux session name for a branch: its last path segment.
+func defaultSessionName(branch string) string {
+	parts := strings.Split(branch, "/")
+	return parts[len(parts)-1]
+}
+
 type WorktreeCmd struct {
 	New  NewWorktreeCmd  `cmd:"" help:"Create a new worktree and open it in a tmux session"`
 	Open OpenWorktreeCmd `cmd:"" help:"Open an existing worktree in a new tmux session"`
@@ -28,8 +39,7 @@ func (c *NewWorktreeCmd) Run() error {
 
 	worktreePath := c.Path
 	if worktreePath == "" {
-		branchDir := strings.ReplaceAll(c.Branch, "/", "-")
-		worktreePath = filepath.Join(filepath.Dir(root), branchDir)
+		worktreePath = worktreeSiblingPath(root, c.Branch)
 	}
 
 	if err := run("git", "worktree", "add", "-B", c.Branch, worktreePath); err != nil {
@@ -38,8 +48,7 @@ func (c *NewWorktreeCmd) Run() error {
 
 	sessionName := c.Session
 	if sessionName == "" {
-		parts := strings.Split(c.Branch, "/")
-		sessionName = parts[len(parts)-1]
+		sessionName = defaultSessionName(c.Branch)
 	}
 
 	if os.Getenv("TMUX") == "" {
@@ -71,8 +80,7 @@ func (c *OpenWorktreeCmd) Run() error {
 
 	sessionName := c.Session
 	if sessionName == "" {
-		parts := strings.Split(c.Branch, "/")
-		sessionName = parts[len(parts)-1]
+		sessionName = defaultSessionName(c.Branch)
 	}
 
 	if os.Getenv("TMUX") == "" {

@@ -58,8 +58,7 @@ func (c *StartRunCmd) Run() error {
 
 	sessionName := c.Session
 	if sessionName == "" {
-		parts := strings.Split(c.Branch, "/")
-		sessionName = parts[len(parts)-1]
+		sessionName = defaultSessionName(c.Branch)
 	}
 
 	logPath := c.LogPath
@@ -186,12 +185,9 @@ func ensureWorktree(repoRoot, branch string) (string, error) {
 	if err == nil {
 		return path, nil
 	}
-	branchDir := strings.ReplaceAll(branch, "/", "-")
-	worktreePath := filepath.Join(filepath.Dir(repoRoot), branchDir)
-	cmd := exec.Command("git", "worktree", "add", "-B", branch, worktreePath)
-	cmd.Dir = repoRoot
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("git worktree add: %s", strings.TrimSpace(string(out)))
+	worktreePath := worktreeSiblingPath(repoRoot, branch)
+	if err := run("git", "worktree", "add", "-B", branch, worktreePath); err != nil {
+		return "", fmt.Errorf("creating worktree: %w", err)
 	}
 	return worktreePath, nil
 }
