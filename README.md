@@ -11,15 +11,15 @@ CLI for managing the end-to-end agent coding workflow — worktrees, tmux window
 ## Installation
 
 ```sh
-make install
+curl -fsSL https://raw.githubusercontent.com/mdawess/amp/main/install.sh | sh
 ```
 
-Installs the binary to `$(go env GOPATH)/bin` (typically `~/go/bin`). Make sure that directory is on your `PATH`.
+Installs the latest release binary to `/usr/local/bin`. Supports macOS and Linux on arm64 and amd64.
 
 To update to the latest version:
 
 ```sh
-make update
+amp update
 ```
 
 ## Commands
