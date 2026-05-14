@@ -14,6 +14,7 @@ var cli struct {
 	Stack    stack.StackCmd       `cmd:"" help:"Manage stacked PRs via gh stack"`
 	Window   worktree.WindowCmd   `cmd:"" help:"Open a new tmux window in the current session"`
 	Run      run.RunCmd           `cmd:"" help:"Run an autonomous agent on a branch"`
+	Update   UpdateCmd            `cmd:"" help:"Update amp to the latest release"`
 }
 
 func main() {
